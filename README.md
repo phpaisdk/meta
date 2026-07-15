@@ -26,7 +26,7 @@ echo $result->text;
 | Variable | Description | Default |
 |---|---|---|
 | `META_API_KEY` | Meta Model API key for authentication | Required |
-| `META_BASE_URL` | Base URL for API requests | `https://api.llama.com/compat/v1` |
+| `META_BASE_URL` | Base URL for API requests | `https://api.meta.ai/v1` |
 
 ## Supported Capabilities
 

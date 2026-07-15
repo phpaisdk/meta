@@ -51,7 +51,7 @@ it('generates text through the Meta Model API compatible endpoint', function () 
         ->and($body['messages'][0]['role'])->toBe('user')
         ->and($body['stream'])->toBeFalse()
         ->and($client->lastRequest->getHeaderLine('Authorization'))->toBe('Bearer meta-test')
-        ->and((string) $client->lastRequest->getUri())->toBe('https://api.llama.com/compat/v1/chat/completions');
+        ->and((string) $client->lastRequest->getUri())->toBe('https://api.meta.ai/v1/chat/completions');
 });
 
 it('normalizes provider-neutral text usage fields', function () {
