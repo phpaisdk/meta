@@ -9,6 +9,7 @@ use AiSdk\Contracts\BaseModel;
 use AiSdk\Contracts\TextModelInterface;
 use AiSdk\Meta\MetaOptions;
 use AiSdk\OpenAICompatible\ChatRequestBuilder;
+use AiSdk\OpenAICompatible\ChatRequestProfile;
 use AiSdk\OpenAICompatible\ChatResponseParser;
 use AiSdk\OpenAICompatible\ChatStreamParser;
 use AiSdk\Requests\TextModelRequest;
@@ -22,13 +23,10 @@ final class MetaTextModel extends BaseModel implements TextModelInterface
         Capability::TextGeneration,
         Capability::Streaming,
         Capability::ToolCalling,
+        Capability::StructuredOutput,
         Capability::Reasoning,
         Capability::TextInput,
         Capability::ImageInput,
-    ];
-
-    private const array ADAPTED_CAPABILITIES = [
-        'structured_output' => 'json_schema downgraded to json_object',
     ];
 
     public function __construct(
@@ -48,7 +46,7 @@ final class MetaTextModel extends BaseModel implements TextModelInterface
 
     public function generate(TextModelRequest $request): TextModelResponse
     {
-        $this->ensureTextRequestSupported($request, self::ADAPTER_CAPABILITIES, self::ADAPTED_CAPABILITIES);
+        $this->ensureTextRequestSupported($request, self::ADAPTER_CAPABILITIES);
 
         $payload = $this->runner($this->options->sdk)->postJson(
             Url::joinPath($this->options->baseUrl, '/chat/completions'),
@@ -62,7 +60,7 @@ final class MetaTextModel extends BaseModel implements TextModelInterface
 
     public function stream(TextModelRequest $request): Generator
     {
-        $this->ensureTextRequestSupported($request, self::ADAPTER_CAPABILITIES, self::ADAPTED_CAPABILITIES, streaming: true);
+        $this->ensureTextRequestSupported($request, self::ADAPTER_CAPABILITIES, streaming: true);
 
         $events = $this->runner($this->options->sdk)->postStream(
             Url::joinPath($this->options->baseUrl, '/chat/completions'),
@@ -79,36 +77,12 @@ final class MetaTextModel extends BaseModel implements TextModelInterface
      */
     private function buildBody(TextModelRequest $request, bool $stream): array
     {
-        $body = ChatRequestBuilder::build($this->modelId, $this->provider(), $request, $stream);
-
-        if (($body['response_format']['type'] ?? null) === 'json_schema') {
-            $body['response_format'] = ['type' => 'json_object'];
-        }
-
-        if (($body['response_format']['type'] ?? null) === 'json_object') {
-            $body['messages'] = $this->withJsonObjectInstruction($body['messages'] ?? []);
-        }
-
-        return $body;
-    }
-
-    /**
-     * @param  mixed  $messages
-     * @return array<int, array<string, mixed>>
-     */
-    private function withJsonObjectInstruction(mixed $messages): array
-    {
-        $messages = is_array($messages) ? array_values($messages) : [];
-        $instruction = 'Respond only with a valid JSON object that matches the requested schema.';
-
-        if (($messages[0]['role'] ?? null) === 'system') {
-            $messages[0]['content'] = trim((string) ($messages[0]['content'] ?? '') . "\n\n" . $instruction);
-
-            return $messages;
-        }
-
-        array_unshift($messages, ['role' => 'system', 'content' => $instruction]);
-
-        return $messages;
+        return ChatRequestBuilder::build(
+            $this->modelId,
+            $this->provider(),
+            $request,
+            $stream,
+            new ChatRequestProfile(maxTokensParameter: 'max_completion_tokens'),
+        );
     }
 }

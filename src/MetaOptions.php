@@ -30,7 +30,7 @@ final class MetaOptions
     {
         $apiKey = Env::loadApiKey(
             isset($config['apiKey']) ? (string) $config['apiKey'] : null,
-            'META_API_KEY',
+            'MODEL_API_KEY',
             self::PROVIDER_NAME,
         );
 

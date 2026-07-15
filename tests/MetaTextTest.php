@@ -11,6 +11,7 @@ use AiSdk\Support\Sdk;
 afterEach(function () {
     Generate::reset();
     Meta::reset();
+    putenv('MODEL_API_KEY');
 });
 
 function configureMetaWith(FakeHttpClient $client): void
@@ -23,8 +24,8 @@ function configureMetaWith(FakeHttpClient $client): void
     ));
 }
 
-it('generates text through the Meta Model API compatible endpoint', function () {
-    $modelId = 'Llama-4-Maverick-17B-128E-Instruct-FP8';
+it('generates text through Meta Chat Completions', function () {
+    $modelId = 'muse-spark-1.1';
     $client = new FakeHttpClient(200, json_encode([
         'id' => 'chatcmpl_meta',
         'object' => 'chat.completion',
@@ -35,7 +36,6 @@ it('generates text through the Meta Model API compatible endpoint', function () 
         'usage' => ['prompt_tokens' => 7, 'completion_tokens' => 3],
     ]));
     configureMetaWith($client);
-
     Meta::create(['apiKey' => 'meta-test']);
 
     $result = Generate::text('Hi')->model(Meta::model($modelId))->run();
@@ -49,9 +49,23 @@ it('generates text through the Meta Model API compatible endpoint', function () 
     $body = $client->sentBody();
     expect($body['model'])->toBe($modelId)
         ->and($body['messages'][0]['role'])->toBe('user')
+        ->and($body['max_completion_tokens'])->toBe(1024)
         ->and($body['stream'])->toBeFalse()
         ->and($client->lastRequest->getHeaderLine('Authorization'))->toBe('Bearer meta-test')
         ->and((string) $client->lastRequest->getUri())->toBe('https://api.meta.ai/v1/chat/completions');
+});
+
+it('reads the documented MODEL_API_KEY environment variable', function () {
+    $client = new FakeHttpClient(200, json_encode([
+        'choices' => [['message' => ['content' => 'Hello from Meta'], 'finish_reason' => 'stop']],
+        'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1],
+    ]));
+    configureMetaWith($client);
+    putenv('MODEL_API_KEY=meta-from-environment');
+
+    Generate::text('Hi')->model(Meta::model('muse-spark-1.1'))->run();
+
+    expect($client->lastRequest->getHeaderLine('Authorization'))->toBe('Bearer meta-from-environment');
 });
 
 it('normalizes provider-neutral text usage fields', function () {
@@ -62,7 +76,7 @@ it('normalizes provider-neutral text usage fields', function () {
     configureMetaWith($client);
     Meta::create(['apiKey' => 'meta-test']);
 
-    $result = Generate::text('Hi')->model(Meta::model('muse-spark'))->run();
+    $result = Generate::text('Hi')->model(Meta::model('muse-spark-1.1'))->run();
 
     expect($result->usage->inputTokens)->toBe(13)
         ->and($result->usage->outputTokens)->toBe(6)
@@ -74,10 +88,10 @@ it('maps a 429 to a rate limit exception', function () {
     configureMetaWith($client);
     Meta::create(['apiKey' => 'meta-test']);
 
-    Generate::text('Hi')->model(Meta::model('muse-spark'))->run();
+    Generate::text('Hi')->model(Meta::model('muse-spark-1.1'))->run();
 })->throws(\AiSdk\Exceptions\RateLimitException::class);
 
-it('falls back to json_object structured output for models without json_schema support', function () {
+it('sends native json_schema structured output', function () {
     $client = new FakeHttpClient(200, json_encode([
         'choices' => [['message' => ['content' => '{"city":"Lahore","country":"Pakistan"}'], 'finish_reason' => 'stop']],
         'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 7],
@@ -86,7 +100,7 @@ it('falls back to json_object structured output for models without json_schema s
     Meta::create(['apiKey' => 'meta-test']);
 
     $result = Generate::text('Extract the city and country from: Lahore, Pakistan.')
-        ->model(Meta::model('muse-spark'))
+        ->model(Meta::model('muse-spark-1.1'))
         ->output(Schema::object(
             name: 'address',
             properties: [
@@ -98,9 +112,9 @@ it('falls back to json_object structured output for models without json_schema s
 
     $body = $client->sentBody();
 
-    expect($body['response_format'])->toBe(['type' => 'json_object'])
-        ->and($body['messages'][0]['role'])->toBe('system')
-        ->and($body['messages'][0]['content'])->toContain('valid JSON object')
+    expect($body['response_format']['type'])->toBe('json_schema')
+        ->and($body['response_format']['json_schema']['name'])->toBe('address')
+        ->and($body['response_format']['json_schema']['strict'])->toBeTrue()
         ->and($result->output)->toBe(['city' => 'Lahore', 'country' => 'Pakistan']);
 });
 
