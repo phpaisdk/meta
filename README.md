@@ -56,9 +56,13 @@ This package uses Meta's Chat Completions API. For Responses API-only features s
 composer test:all
 ```
 
-## Links
+## Documentation
 
-- [Meta Model API documentation](https://dev.meta.ai/docs/getting-started/overview/)
-- [Chat Completions API](https://dev.meta.ai/docs/features/chat-completion)
-- [Core Package](https://github.com/phpaisdk/core)
-- [OpenAI-Compatible Package](https://github.com/phpaisdk/openai-compatible)
+- [PHP AI SDK documentation](https://phpaisdk.com/docs)
+- [Meta documentation](https://phpaisdk.com/docs/meta)
+
+## Community
+
+- [Contributing](https://github.com/phpaisdk/.github/blob/main/CONTRIBUTING.md)
+- [Support](https://github.com/phpaisdk/.github/blob/main/SUPPORT.md)
+- For private security reports, email [security@phpaisdk.com](mailto:security@phpaisdk.com).
