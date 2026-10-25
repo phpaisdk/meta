@@ -38,7 +38,7 @@ it('generates text through Meta Chat Completions', function () {
     configureMetaWith($client);
     Meta::create(['apiKey' => 'meta-test']);
 
-    $result = Generate::text('Hi')->model(Meta::model($modelId))->run();
+    $result = Generate::text('Hi')->model(Meta::model($modelId))->maxTokens(1024)->run();
 
     expect($result->text)->toBe('Hello from Meta')
         ->and($result->usage->inputTokens)->toBe(7)
